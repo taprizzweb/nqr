@@ -33,7 +33,7 @@ export default async function AdminHome() {
       <div className="stats">
         <div className="stat"><b>{total ?? 0}</b>Total plates</div>
         <div className="stat"><b>{(active ?? 0) - (pending ?? 0)}</b>Confirmed</div>
-        <div className="stat"><b>{pending ?? 0}</b>Pending check</div>
+        <a className="stat" href="/admin/plates?show=pending"><b>{pending ?? 0}</b>Pending check</a>
         <div className="stat"><b>{(total ?? 0) - (active ?? 0)}</b>Still free</div>
         <div className="stat"><b>{scans ?? 0}</b>Total scans</div>
       </div>

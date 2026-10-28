@@ -23,6 +23,7 @@ export default async function AdminPlates({
   if (/^\d+$/.test(q)) query = query.eq("number", Number(q));
   else if (q) query = query.ilike("shop_name", `%${q.replace(/[%,]/g, "")}%`);
   if (show === "free") query = query.is("review_url", null);
+  if (show === "pending") query = query.not("review_url", "is", null).is("confirmed_at", null);
   if (show === "active") query = query.not("review_url", "is", null);
 
   const { data, count } = await query;
@@ -46,7 +47,7 @@ export default async function AdminPlates({
             <input id="q" name="q" defaultValue={q} /></div>
           <div><label htmlFor="show">Show</label>
             <select id="show" name="show" defaultValue={show}>
-              <option value="all">All</option><option value="active">Activated</option><option value="free">Free</option>
+              <option value="all">All</option><option value="active">Activated</option><option value="pending">Pending check</option><option value="free">Free</option>
             </select></div>
           <button type="submit" style={{ alignSelf: "flex-end" }}>Search</button>
           <a className="btn ghost" style={{ alignSelf: "flex-end" }} href="/api/admin/export">Export CSV</a>
@@ -54,7 +55,7 @@ export default async function AdminPlates({
 
         <div className="tablewrap" style={{ marginTop: 12 }}>
           <table>
-            <thead><tr><th>No.</th><th>Shop</th><th>Rep</th><th>Scans</th><th></th></tr></thead>
+            <thead><tr><th>No.</th><th>Shop</th><th>Status</th><th>Rep</th><th>Scans</th><th></th></tr></thead>
             <tbody>
               {(data ?? []).map((p) => (
                 <AdminPlateRow key={p.number} p={{
@@ -62,7 +63,7 @@ export default async function AdminPlates({
                   scan_count: p.scan_count, confirmed: !!p.confirmed_at, rep_name: p.activated_by ? names.get(p.activated_by) ?? null : null,
                 }} />
               ))}
-              {(data ?? []).length === 0 && <tr><td colSpan={5} className="muted">No plates found.</td></tr>}
+              {(data ?? []).length === 0 && <tr><td colSpan={6} className="muted">No plates found.</td></tr>}
             </tbody>
           </table>
         </div>

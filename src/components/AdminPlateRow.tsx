@@ -8,11 +8,14 @@ type P = {
   scan_count: number; rep_name: string | null; confirmed: boolean;
 };
 
+const FINDER = "https://developers.google.com/maps/documentation/places/web-service/place-id";
+
 export default function AdminPlateRow({ p }: { p: P }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(p.shop_name ?? "");
   const [url, setUrl] = useState(p.review_url ?? "");
+  const [pid, setPid] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -33,12 +36,13 @@ export default function AdminPlateRow({ p }: { p: P }) {
     <>
       <tr>
         <td><b>{p.number}</b></td>
-        <td>{p.shop_name ?? <span className="muted">free</span>}{p.review_url && !p.confirmed && <span className="muted"> (pending check)</span>}</td>
+        <td>{p.shop_name ?? <span className="muted">free</span>}</td>
+        <td>{!p.review_url ? <span className="muted">Free</span> : p.confirmed ? "Confirmed" : <b>Pending check</b>}{p.locked && " (locked)"}</td>
         <td>{p.rep_name ?? ""}</td>
         <td>{p.scan_count}</td>
         <td>
           <div className="row">
-            <button className="ghost" onClick={() => setOpen(!open)}>{open ? "Close" : "Edit"}</button>
+            <button onClick={() => setOpen(!open)}>{open ? "Close" : p.review_url ? "Change / Clear" : "Set"}</button>
             <button className="ghost" disabled={busy}
               onClick={() => run("admin_lock_plate", { p_number: p.number, p_locked: !p.locked })}>
               {p.locked ? "Unlock" : "Lock"}
@@ -48,17 +52,30 @@ export default function AdminPlateRow({ p }: { p: P }) {
       </tr>
       {open && (
         <tr>
-          <td colSpan={5}>
+          <td colSpan={6}>
             <label htmlFor={`n${p.number}`}>Shop name</label>
             <input id={`n${p.number}`} value={name} onChange={(e) => setName(e.target.value)} />
+            <label htmlFor={`i${p.number}`}>Place ID (makes the review link)</label>
+            <div className="row">
+              <input id={`i${p.number}`} className="grow" value={pid} placeholder="ChIJ..."
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\s/g, "");
+                  setPid(v);
+                  if (v) setUrl(`https://search.google.com/local/writereview?placeid=${v}`);
+                }} />
+              <a className="btn ghost" href={FINDER} target="_blank" rel="noreferrer">Place ID finder</a>
+            </div>
             <label htmlFor={`u${p.number}`}>Google review link</label>
             <input id={`u${p.number}`} value={url} onChange={(e) => setUrl(e.target.value)} />
+            {p.review_url && <div className="row" style={{ marginTop: 8 }}>
+              <a className="btn ghost" href={`/qr/${p.number}`} target="_blank" rel="noreferrer">Test plate link</a>
+            </div>}
             {err && <div className="msg err">{err}</div>}
             <div className="row" style={{ marginTop: 12 }}>
               <button disabled={busy || !name.trim() || !url.trim()}
                 onClick={async () => {
                   const ok = await run("admin_set_plate", {
-                    p_number: p.number, p_place_id: null, p_shop_name: name.trim(),
+                    p_number: p.number, p_place_id: pid || null, p_shop_name: name.trim(),
                     p_shop_address: null, p_review_url: url.trim(),
                   });
                   if (ok) setOpen(false);
