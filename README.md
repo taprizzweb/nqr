@@ -70,3 +70,5 @@ Plates already activated are treated as confirmed. A fresh install only needs `s
 - Only Google review or Google Maps links are accepted (checked in the database, not only in the screen).
 - A switched-off rep loses all access immediately, including to plates they only set but did not confirm.
 - Only the admin can edit, clear, lock or restore plates. Every change is in History with a one-click restore.
+
+<!-- deploy v2 -->
