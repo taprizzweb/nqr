@@ -1,0 +1,69 @@
+:root {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --brand: #0f172a;
+  --ok: #16a34a;
+  --ok-bg: #dcfce7;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --bad: #b91c1c;
+  --bad-bg: #fee2e2;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1220; --card: #111a2e; --ink: #e5e7eb; --muted: #94a3b8; --line: #1f2a44;
+    --brand: #e5e7eb; --ok: #4ade80; --ok-bg: #12301f; --warn: #fbbf24; --warn-bg: #3a2c0c;
+    --bad: #f87171; --bad-bg: #3a1414;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: inherit; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 16px; }
+.narrow { max-width: 440px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0 0 12px; }
+h2 { font-size: 17px; margin: 0 0 8px; }
+.muted { color: var(--muted); font-size: 14px; }
+label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
+input, select, textarea { width: 100%; padding: 12px; font-size: 16px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--card); color: var(--ink); }
+input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+button, .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
+  padding: 10px 16px; font-size: 16px; font-weight: 600; border: 1px solid var(--brand); border-radius: 8px;
+  background: var(--brand); color: var(--bg); cursor: pointer; text-decoration: none; }
+button.ghost, .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.row > * { flex: 0 0 auto; }
+.grow { flex: 1 1 200px !important; }
+.msg { padding: 10px 12px; border-radius: 8px; margin: 12px 0; font-size: 15px; }
+.msg.ok { background: var(--ok-bg); color: var(--ok); }
+.msg.err { background: var(--bad-bg); color: var(--bad); }
+.msg.warn { background: var(--warn-bg); color: var(--warn); }
+.nav { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 16px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.nav a { padding: 8px 12px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; }
+.nav a:hover { background: var(--line); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+.cell { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 8px;
+  font-weight: 700; text-decoration: none; border: 1px solid var(--line); background: var(--card); color: var(--muted); }
+.cell.on { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.cell.free { color: var(--ink); }
+.cell.locked { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.stat b { display: block; font-size: 26px; }
+.pick { display: block; width: 100%; text-align: left; background: var(--card); color: var(--ink);
+  border: 1px solid var(--line); margin-top: 8px; }
+.pick small { display: block; font-weight: 400; color: var(--muted); }
+.pick.sel { border-color: var(--ok); background: var(--ok-bg); }
+canvas { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; }
