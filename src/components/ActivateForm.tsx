@@ -10,9 +10,13 @@ type Result = { place_id: string; name: string; address: string; review_url: str
 const REVIEW_LINK =
   /^https:\/\/(search\.google\.com\/local\/writereview\?placeid=[A-Za-z0-9_-]+|g\.page\/r\/[A-Za-z0-9_-]+\/review|www\.google\.com\/maps\/.+|maps\.app\.goo\.gl\/.+|goo\.gl\/maps\/.+)$/i;
 
+/**
+ * Step 1: set the link. The plate becomes PENDING (not final yet).
+ * With editing=true it changes the link of the rep's own pending plate.
+ */
 export default function ActivateForm({
-  number, fixing, current,
-}: { number: number; fixing: boolean; current: string | null }) {
+  number, editing, current, onDone,
+}: { number: number; editing: boolean; current: string | null; onDone?: () => void }) {
   const router = useRouter();
   const [mode, setMode] = useState<"search" | "paste">("search");
   const [q, setQ] = useState("");
@@ -52,9 +56,7 @@ export default function ActivateForm({
     if (!chosen) return;
     setBusy(true);
     setMsg(null);
-    const sb = browserClient();
-    const fn = fixing ? "fix_own_plate" : "activate_plate";
-    const { data, error } = await sb.rpc(fn, {
+    const { data, error } = await browserClient().rpc(editing ? "edit_pending_plate" : "activate_plate", {
       p_number: number,
       p_place_id: chosen.place_id || null,
       p_shop_name: chosen.name,
@@ -72,14 +74,19 @@ export default function ActivateForm({
       setMsg({ kind: "err", text: data?.error || "Could not save." });
       return;
     }
-    setMsg({ kind: "ok", text: `Plate ${number} is now linked to ${chosen.name}.` });
-    setTimeout(() => { router.push("/rep"); router.refresh(); }, 1200);
+    // The page now moves on to step 2 (test the QR and confirm).
+    if (onDone) onDone();
+    router.refresh();
   }
 
   return (
     <div className="card">
-      <h1>{fixing ? `Fix plate ${number}` : `Activate plate ${number}`}</h1>
-      {fixing && <div className="msg warn">Currently linked to {current}. You can fix your own mistake for 1 hour after activating.</div>}
+      <h1>{editing ? `Change link for plate ${number}` : `Set link for plate ${number}`}</h1>
+      <p className="muted">
+        {editing
+          ? `Currently ${current}. You can change it until you confirm.`
+          : "Step 1 of 2. After saving you will test the QR, then confirm."}
+      </p>
 
       <div className="row" style={{ marginBottom: 8 }}>
         <button className={mode === "search" ? "" : "ghost"} onClick={() => { setMode("search"); setMsg(null); }}>Search shop</button>
@@ -121,7 +128,7 @@ export default function ActivateForm({
           <b>{chosen.name}</b>
           {chosen.address && <div>{chosen.address}</div>}
           <div className="row" style={{ marginTop: 8 }}>
-            <a className="btn ghost" href={chosen.review_url} target="_blank" rel="noreferrer">Test review link</a>
+            <a className="btn ghost" href={chosen.review_url} target="_blank" rel="noreferrer">Preview review page</a>
           </div>
         </div>
       )}
@@ -129,8 +136,12 @@ export default function ActivateForm({
       {msg && <div className={`msg ${msg.kind}`} role="alert">{msg.text}</div>}
 
       <div className="row" style={{ marginTop: 16 }}>
-        <button onClick={save} disabled={!chosen || busy}>{busy ? "Saving..." : fixing ? "Save fix" : `Save plate ${number}`}</button>
-        <Link className="btn ghost" href="/rep">Cancel</Link>
+        <button onClick={save} disabled={!chosen || busy}>
+          {busy ? "Saving..." : editing ? "Save new link" : "Set link"}
+        </button>
+        {editing && onDone
+          ? <button className="ghost" onClick={onDone}>Cancel</button>
+          : <Link className="btn ghost" href="/rep">Cancel</Link>}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminHome() {
   const sb = await serverClient();
 
-  const [{ count: total }, { count: active }, { count: scans }, { data: reps }, { data: recent }, { data: top }] =
+  const [{ count: total }, { count: active }, { count: scans }, { data: reps }, { data: recent }, { data: top }, { count: pending }] =
     await Promise.all([
       sb.from("plates").select("*", { count: "exact", head: true }),
       sb.from("plates").select("*", { count: "exact", head: true }).not("review_url", "is", null),
@@ -15,6 +15,7 @@ export default async function AdminHome() {
         .gte("activated_at", new Date(Date.now() - 7 * 86400000).toISOString()).limit(5000),
       sb.from("plates").select("number,shop_name,scan_count").gt("scan_count", 0)
         .order("scan_count", { ascending: false }).limit(10),
+      sb.from("plates").select("*", { count: "exact", head: true }).not("review_url", "is", null).is("confirmed_at", null),
     ]);
 
   const perRep = new Map<string, { week: number; today: number }>();
@@ -31,7 +32,8 @@ export default async function AdminHome() {
       <h1>Overview</h1>
       <div className="stats">
         <div className="stat"><b>{total ?? 0}</b>Total plates</div>
-        <div className="stat"><b>{active ?? 0}</b>Activated</div>
+        <div className="stat"><b>{(active ?? 0) - (pending ?? 0)}</b>Confirmed</div>
+        <div className="stat"><b>{pending ?? 0}</b>Pending check</div>
         <div className="stat"><b>{(total ?? 0) - (active ?? 0)}</b>Still free</div>
         <div className="stat"><b>{scans ?? 0}</b>Total scans</div>
       </div>

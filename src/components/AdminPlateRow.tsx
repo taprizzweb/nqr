@@ -5,7 +5,7 @@ import { browserClient } from "@/lib/supabase-browser";
 
 type P = {
   number: number; shop_name: string | null; review_url: string | null; locked: boolean;
-  scan_count: number; rep_name: string | null;
+  scan_count: number; rep_name: string | null; confirmed: boolean;
 };
 
 export default function AdminPlateRow({ p }: { p: P }) {
@@ -33,7 +33,7 @@ export default function AdminPlateRow({ p }: { p: P }) {
     <>
       <tr>
         <td><b>{p.number}</b></td>
-        <td>{p.shop_name ?? <span className="muted">free</span>}</td>
+        <td>{p.shop_name ?? <span className="muted">free</span>}{p.review_url && !p.confirmed && <span className="muted"> (pending check)</span>}</td>
         <td>{p.rep_name ?? ""}</td>
         <td>{p.scan_count}</td>
         <td>

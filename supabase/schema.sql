@@ -21,6 +21,8 @@ create table if not exists public.plates (
   review_url text,
   activated_by uuid references public.profiles(id),
   activated_at timestamptz,
+  link_set_at timestamptz,      -- when the current link was last set (scan check must come after this)
+  confirmed_at timestamptz,     -- null while pending; set once the rep has tested the QR and confirmed
   locked boolean not null default false,
   scan_count int not null default 0,
   last_scan_at timestamptz,
@@ -31,7 +33,7 @@ create table if not exists public.plates (
 create table if not exists public.plate_history (
   id bigint generated always as identity primary key,
   plate_number int not null references public.plates(number) on delete cascade,
-  action text not null,                 -- activate | edit | clear | lock | unlock | restore
+  action text not null,                 -- activate | edit | confirm | clear | lock | unlock | restore
   actor uuid references public.profiles(id),
   old_review_url text,
   new_review_url text,
@@ -68,7 +70,7 @@ language sql immutable as $$
   select u ~* '^https://(search\.google\.com/local/writereview\?placeid=[A-Za-z0-9_-]+|g\.page/r/[A-Za-z0-9_-]+/review|www\.google\.com/maps/.+|maps\.app\.goo\.gl/.+|goo\.gl/maps/.+)$';
 $$;
 
--- ---------- atomic activation (reps) ----------
+-- ---------- step 1: rep sets the link (plate becomes PENDING) ----------
 -- Succeeds only if the plate is still empty. Two reps saving at once: first wins.
 create or replace function public.activate_plate(
   p_number int, p_place_id text, p_shop_name text, p_shop_address text, p_review_url text
@@ -90,7 +92,9 @@ begin
          shop_address = p_shop_address,
          review_url = p_review_url,
          activated_by = auth.uid(),
-         activated_at = now()
+         activated_at = now(),
+         link_set_at = now(),
+         confirmed_at = null
    where number = p_number
      and review_url is null
      and locked = false;
@@ -106,8 +110,9 @@ begin
   return json_build_object('ok', true);
 end $$;
 
--- ---------- rep fix window (own plate, within 1 hour) ----------
-create or replace function public.fix_own_plate(
+-- ---------- step 1b: rep changes the link while it is still PENDING (own plate only) ----------
+-- Once the plate is confirmed, reps have no way to touch it again. Only the admin can.
+create or replace function public.edit_pending_plate(
   p_number int, p_place_id text, p_shop_name text, p_shop_address text, p_review_url text
 ) returns json
 language plpgsql security definer set search_path = public as $$
@@ -121,19 +126,48 @@ begin
 
   update plates
      set place_id = p_place_id, shop_name = p_shop_name,
-         shop_address = p_shop_address, review_url = p_review_url
+         shop_address = p_shop_address, review_url = p_review_url,
+         link_set_at = now()
    where number = p_number
      and activated_by = auth.uid()
-     and activated_at > now() - interval '1 hour'
+     and confirmed_at is null
+     and review_url is not null
      and locked = false;
   get diagnostics rows = row_count;
 
   if rows = 0 then
-    return json_build_object('ok', false, 'error', 'The fix window has closed. Ask the admin to change it.');
+    return json_build_object('ok', false, 'error', 'This plate is confirmed or not yours. Only the admin can change it.');
   end if;
 
   insert into plate_history(plate_number, action, actor, old_review_url, new_review_url, old_shop_name, new_shop_name)
   values (p_number, 'edit', auth.uid(), old_url, p_review_url, old_name, p_shop_name);
+
+  return json_build_object('ok', true);
+end $$;
+
+-- ---------- step 2: rep confirms after testing the real QR ----------
+-- Only works if the plate's short link was actually scanned AFTER the current link was set.
+create or replace function public.confirm_plate(p_number int) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  p plates;
+begin
+  if not is_active_rep() then raise exception 'Not allowed'; end if;
+
+  select * into p from plates where number = p_number for update;
+  if not found or p.review_url is null or p.activated_by is distinct from auth.uid()
+     or p.confirmed_at is not null or p.locked then
+    return json_build_object('ok', false, 'error', 'This plate cannot be confirmed by you.');
+  end if;
+
+  if not exists (select 1 from scans where plate_number = p_number and scanned_at > p.link_set_at) then
+    return json_build_object('ok', false, 'code', 'no_scan',
+      'error', 'We have not seen a scan of this plate since you set the link. Scan the plate QR, check the review page opens, then confirm.');
+  end if;
+
+  update plates set confirmed_at = now() where number = p_number;
+  insert into plate_history(plate_number, action, actor, new_review_url, new_shop_name)
+  values (p_number, 'confirm', auth.uid(), p.review_url, p.shop_name);
 
   return json_build_object('ok', true);
 end $$;
@@ -150,7 +184,8 @@ begin
   select review_url, shop_name into old_url, old_name from plates where number = p_number;
   update plates set place_id = p_place_id, shop_name = p_shop_name, shop_address = p_shop_address,
          review_url = p_review_url, activated_by = coalesce(activated_by, auth.uid()),
-         activated_at = coalesce(activated_at, now())
+         activated_at = coalesce(activated_at, now()),
+         link_set_at = now(), confirmed_at = coalesce(confirmed_at, now())
    where number = p_number;
   insert into plate_history(plate_number, action, actor, old_review_url, new_review_url, old_shop_name, new_shop_name)
   values (p_number, 'edit', auth.uid(), old_url, p_review_url, old_name, p_shop_name);
@@ -164,7 +199,7 @@ begin
   if not is_admin() then raise exception 'Admins only'; end if;
   select review_url, shop_name into old_url, old_name from plates where number = p_number;
   update plates set place_id=null, shop_name=null, shop_address=null, review_url=null,
-         activated_by=null, activated_at=null where number = p_number;
+         activated_by=null, activated_at=null, link_set_at=null, confirmed_at=null where number = p_number;
   insert into plate_history(plate_number, action, actor, old_review_url, old_shop_name)
   values (p_number, 'clear', auth.uid(), old_url, old_name);
   return json_build_object('ok', true);
@@ -249,11 +284,13 @@ revoke all on function public.admin_lock_plate(int,boolean) from public;
 revoke all on function public.admin_restore_history(bigint) from public;
 revoke all on function public.admin_create_plates(int,int) from public;
 revoke all on function public.activate_plate(int,text,text,text,text) from public;
-revoke all on function public.fix_own_plate(int,text,text,text,text) from public;
+revoke all on function public.edit_pending_plate(int,text,text,text,text) from public;
+revoke all on function public.confirm_plate(int) from public;
 grant execute on function public.admin_set_plate(int,text,text,text,text) to authenticated;
 grant execute on function public.admin_clear_plate(int) to authenticated;
 grant execute on function public.admin_lock_plate(int,boolean) to authenticated;
 grant execute on function public.admin_restore_history(bigint) to authenticated;
 grant execute on function public.admin_create_plates(int,int) to authenticated;
 grant execute on function public.activate_plate(int,text,text,text,text) to authenticated;
-grant execute on function public.fix_own_plate(int,text,text,text,text) to authenticated;
+grant execute on function public.edit_pending_plate(int,text,text,text,text) to authenticated;
+grant execute on function public.confirm_plate(int) to authenticated;

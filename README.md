@@ -43,11 +43,30 @@ It is used only on the server (shop search), never in the browser.
 **Plates > Export CSV** downloads every plate with its shop and review link. Do this weekly and keep the file.
 The History page can restore a plate's previous link in one click.
 
+## How a rep activates a plate
+1. **Scan** the plate QR with the in-app scanner (or type the number).
+2. **Set the link:** search the shop, or paste a Google review link, then tap Set link. The plate is now *pending*.
+3. **Test:** scan the real plate QR with the phone camera (or tap Test plate link). The correct shop's review page must open.
+4. **Confirm:** come back and tap Confirm. The server only accepts this if it actually saw a scan of that plate after the link was set.
+5. The plate is now final. The rep has **no way** to change, clear or re-activate it. Only the admin can.
+
+If the rep picked the wrong shop, they can change the link until they confirm (step 4).
+
+## If you remove a rep
+Reps > **Switch off**. They are logged out and blocked on their very next request, even if their phone is still logged in.
+Everything they confirmed stays exactly as it is. Check **Plates** for rows marked *(pending check)* that belong to them
+and either finish them yourself (Edit) or clear them.
+
+## Upgrading from the first version
+If you already ran the first `schema.sql`, run `supabase/migration-002-confirm-flow.sql` once in the SQL Editor.
+Plates already activated are treated as confirmed. A fresh install only needs `schema.sql`.
+
 ## Security model
-- Reps can only activate a **free** plate and fix their own mistake within 1 hour. Nothing else.
+- Reps can only set a **free** plate, change it while it is still pending, and confirm it after a real scan. Nothing else.
+- After confirming, the rep cannot change, remove or re-activate the plate. There is no time window to exploit.
 - Reps cannot generate QR codes; the generator is behind the admin login.
 - Reps cannot write to the database directly. All changes go through functions that check the rules.
 - Two reps saving the same plate at the same moment: the first wins, the second sees "already activated".
 - Only Google review or Google Maps links are accepted (checked in the database, not only in the screen).
-- Switching a rep off logs them out and blocks them on their very next request.
-- Only the admin can edit, clear, lock or restore plates.
+- A switched-off rep loses all access immediately, including to plates they only set but did not confirm.
+- Only the admin can edit, clear, lock or restore plates. Every change is in History with a one-click restore.

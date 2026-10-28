@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { serverClient } from "@/lib/supabase";
 import ActivateForm from "@/components/ActivateForm";
+import ConfirmStep from "@/components/ConfirmStep";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export default async function ActivatePage({ params }: { params: Promise<{ numbe
   const { data: u } = await sb.auth.getUser();
   const { data: plate } = await sb
     .from("plates")
-    .select("number,shop_name,shop_address,review_url,activated_by,activated_at,locked")
+    .select("number,shop_name,shop_address,review_url,activated_by,confirmed_at,locked")
     .eq("number", n)
     .maybeSingle();
 
@@ -30,23 +31,35 @@ export default async function ActivatePage({ params }: { params: Promise<{ numbe
   }
 
   const mine = plate.activated_by === u.user!.id;
-  const withinWindow =
-    !!plate.activated_at && Date.now() - new Date(plate.activated_at).getTime() < 60 * 60 * 1000;
+  const pending = !!plate.review_url && !plate.confirmed_at;
 
-  // Taken by someone else, locked, or past the fix window: read-only.
-  if (plate.review_url && !(mine && withinWindow && !plate.locked)) {
+  // Pending and mine: step 2 (test the QR, then confirm) or change the link.
+  if (pending && mine && !plate.locked) {
+    return (
+      <ConfirmStep
+        number={n}
+        shop={plate.shop_name ?? ""}
+        address={plate.shop_address ?? ""}
+        reviewUrl={plate.review_url!}
+      />
+    );
+  }
+
+  // Everything else that is already set: read-only for reps.
+  if (plate.review_url) {
     return (
       <div className="card">
-        <h1>Plate {n} is already activated</h1>
+        <h1>Plate {n} is already set</h1>
         <p><b>{plate.shop_name}</b></p>
         <p className="muted">{plate.shop_address}</p>
         <div className="msg warn">
           {plate.locked
             ? "This plate is locked. Only the admin can change it."
-            : "Only the admin can change an activated plate."}
+            : pending
+            ? "Another rep has set this plate and is still checking it."
+            : "This plate is confirmed. Only the admin can change it."}
         </div>
         <div className="row">
-          <a className="btn ghost" href={plate.review_url} target="_blank" rel="noreferrer">Open review page</a>
           <Link className="btn ghost" href="/rep">Back to plates</Link>
         </div>
       </div>
@@ -63,5 +76,5 @@ export default async function ActivatePage({ params }: { params: Promise<{ numbe
     );
   }
 
-  return <ActivateForm number={n} fixing={!!plate.review_url} current={plate.shop_name} />;
+  return <ActivateForm number={n} editing={false} current={null} />;
 }

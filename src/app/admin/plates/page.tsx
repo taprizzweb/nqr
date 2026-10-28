@@ -17,7 +17,7 @@ export default async function AdminPlates({
 
   let query = sb
     .from("plates")
-    .select("number,shop_name,review_url,locked,scan_count,activated_by", { count: "exact" })
+    .select("number,shop_name,review_url,locked,scan_count,activated_by,confirmed_at", { count: "exact" })
     .order("number")
     .range((page - 1) * PAGE, page * PAGE - 1);
   if (/^\d+$/.test(q)) query = query.eq("number", Number(q));
@@ -59,7 +59,7 @@ export default async function AdminPlates({
               {(data ?? []).map((p) => (
                 <AdminPlateRow key={p.number} p={{
                   number: p.number, shop_name: p.shop_name, review_url: p.review_url, locked: p.locked,
-                  scan_count: p.scan_count, rep_name: p.activated_by ? names.get(p.activated_by) ?? null : null,
+                  scan_count: p.scan_count, confirmed: !!p.confirmed_at, rep_name: p.activated_by ? names.get(p.activated_by) ?? null : null,
                 }} />
               ))}
               {(data ?? []).length === 0 && <tr><td colSpan={5} className="muted">No plates found.</td></tr>}
