@@ -43,7 +43,9 @@ export function CreateRep() {
   );
 }
 
-export function RepRow({ rep }: { rep: Rep }) {
+export function RepRow({
+  rep, confirmed, confirmedCount, pending, pendingCount,
+}: { rep: Rep; confirmed: string; confirmedCount: number; pending: string; pendingCount: number }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -64,6 +66,11 @@ export function RepRow({ rep }: { rep: Rep }) {
       <td>{rep.full_name}</td>
       <td>{rep.phone}</td>
       <td>{rep.active ? "Active" : "Switched off"}</td>
+      <td>
+        {confirmedCount === 0 && pendingCount === 0 && <span className="muted">None yet</span>}
+        {confirmedCount > 0 && <div><b>Confirmed ({confirmedCount}):</b> {confirmed}</div>}
+        {pendingCount > 0 && <div><b>Pending ({pendingCount}):</b> {pending}</div>}
+      </td>
       <td>
         <div className="row">
           <button className={rep.active ? "danger" : "ghost"} disabled={busy}
